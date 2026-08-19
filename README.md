@@ -170,7 +170,7 @@ This implementation differs from the [commercial region version](https://github.
 
 ### Prerequisites
 
-* AWS CLI configured with a profile for the European Sovereign Cloud
+* AWS CLI configured with a profile for the European Sovereign Cloud account
 * SAM CLI installed
 * Node.js
 
