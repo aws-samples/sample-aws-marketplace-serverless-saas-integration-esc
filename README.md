@@ -181,8 +181,9 @@ Use the following commands to build and deploy the solution:
 
 
 ```bash
-sam build --profile esc
-sam deploy --guided --capabilities CAPABILITY_NAMED_IAM --profile esc
+PROFILE=esc
+sam build --profile "$PROFILE"
+sam deploy --guided --capabilities CAPABILITY_NAMED_IAM --profile "$PROFILE"
 ```
 
 ### Parameters
@@ -221,11 +222,26 @@ The landing page is optional. Use the ***CreateRegistrationWebPage*** parameter 
 To delete the application:
 
 ```bash
-# If you deployed a registration page, empty the S3 bucket first
-aws s3 rm s3://<WebsiteS3BucketName> --recursive --profile esc
+# Set your stack name and profile
+STACK_NAME=stack-name
+PROFILE=esc
 
-# Delete the stack
-aws cloudformation delete-stack --stack-name <stack-name> --profile esc
+# If you deployed a registration page, empty the S3 bucket first.
+# Resolve the real bucket name from the stack (do NOT use the parameter name).
+BUCKET=$(aws cloudformation describe-stack-resources --stack-name "$STACK_NAME" --profile "$PROFILE" \
+  --query "StackResources[?ResourceType=='AWS::S3::Bucket'].PhysicalResourceId" --output text)
+
+# Empty the bucket completely: objects, versions, AND delete markers in one pass.
+# `[Versions, DeleteMarkers][][]` covers both categories, and `(Objects || `[]`)`
+# prevents the "value: None" ParamValidation error when the bucket has no
+# versions or no delete markers (delete markers alone will block a stack delete).
+aws s3api delete-objects --bucket "$BUCKET" --profile "$PROFILE" \
+  --delete "$(aws s3api list-object-versions --bucket "$BUCKET" --profile "$PROFILE" \
+    --query '{Objects: [Versions, DeleteMarkers][][].{Key:Key,VersionId:VersionId}} | {Objects: (Objects || `[]`)}' \
+    --output json)"
+
+# Delete the stack and wait for teardown to finish
+aws cloudformation delete-stack --stack-name "$STACK_NAME" --profile "$PROFILE"
 ```
 
 
